@@ -213,6 +213,11 @@ class HttpClient {
 		return $url;
 	}
 	
+	public function getPath() {
+		// Returns the requested path (not a complete URL).
+		return $this->path;
+	}
+	
 	// --- Configuration methods:
 	
 	public function setUserAgent($string) {
@@ -301,6 +306,17 @@ class HttpClient {
 		$this->debug = $boolean;
 	}
 	
+	public function setPath($path) {
+		// Manually set the path (not usually needed).
+		$this->path = $path;
+	}
+	
+	public function setMethod($method) {
+		// Manually set the request method (not usually needed).
+		if (!in_array($method, array("GET","POST"))) trigger_error("HttpClient::setMethod() : '$method' is not a valid method", E_USER_ERROR);
+		$this->method = $method;
+	}
+	
 	// --- Static utility methods:
 	
 	public static function quickGet($url, $data = null) {
@@ -315,6 +331,36 @@ class HttpClient {
 		
 		*/
 		
+		$client = self::create($url);
+		$client->get($client->getPath(), $data);
+		return $client;
+		
+	}
+	
+	public static function quickPost($url, $data) {
+		
+		// Similar to [HttpClient::quickGet()], but performs a POST query.
+		
+		$client = self::create($url);
+		$client->post($client->getPath(), $data);
+		return $client;
+		
+	}
+	
+	public function create($url) {
+		
+		/*
+		
+		Static shortcut method to create and configure a new instance
+		of this class. Query is not automatically performed, but the
+		class is preconfigured so you can call doRequest() after
+		setting whatever other parameters you might need.
+		
+		(If you don't need to set any other parameters, you most likely
+		want one of the quickGet() or quickPost() methods instead.)
+		
+		*/
+		
 		$bits = parse_url($url);
 		$host = $bits['host'];
 		$port = isset($bits['port']) ? $bits['port'] : 80;
@@ -324,23 +370,9 @@ class HttpClient {
 			$path .= '?'.$bits['query'];
 		
 		$client = new HttpClient($host, $port);
-		$client->get($path, $data);
-		return $client;
+		$client->setPath($path);
+		$client->setMethod("GET");
 		
-	}
-	
-	public static function quickPost($url, $data) {
-		
-		// Similar to [HttpClient::quickGet()], but performs a POST query.
-		
-		$bits = parse_url($url);
-		
-		$host = $bits['host'];
-		$port = isset($bits['port']) ? $bits['port'] : 80;
-		$path = isset($bits['path']) ? $bits['path'] : '/';
-		
-		$client = new HttpClient($host, $port);
-		$client->post($path, $data);
 		return $client;
 		
 	}
@@ -371,9 +403,10 @@ class HttpClient {
 		
 	}
 	
-	protected function doRequest() {
+	public function doRequest() {
 		
 		// Performs the actual HTTP request, returning true on success, false on error.
+		// (You do not usually need to call this manually)
 		
 		if (!$fp = @fsockopen($this->host, $this->port, $errno, $errstr, $this->timeout)) {
 			// * Set error message:
